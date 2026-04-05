@@ -1,4 +1,4 @@
-const DOCKER_API = '';
+const DOCKER_API = 'xxx.xx.xxx:7024';
 
 const CHINESE_NUM_MAP = {
   '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
@@ -27,7 +27,7 @@ WidgetMetadata = {
       name: "apiUrl",
       title: "Docker API 地址",
       type: "input",
-      value: ""
+      value: "xxx.xx.xxx:7024"
     }
   ],
   modules: [
@@ -70,7 +70,7 @@ async function loadResource(params) {
 
   try {
     const searchUrl = `${apiUrl}/api.php/provide/vod`;
-    const response = await Widget.http.get(searchUrl, {
+    const searchResponse = await Widget.http.get(searchUrl, {
       params: { 
         ac: "search", 
         wd: baseName.trim() 
@@ -78,67 +78,78 @@ async function loadResource(params) {
       timeout: 30000
     });
 
-    const list = response?.data?.list;
-    if (!Array.isArray(list)) return [];
+    const searchList = searchResponse?.data?.list;
+    if (!Array.isArray(searchList)) return [];
 
-    const matchedItems = list.filter(item => {
+    const matchedItems = searchList.filter(item => {
       const itemInfo = extractSeasonInfo(item.vod_name);
       return itemInfo.baseName === baseName && itemInfo.seasonNumber === targetSeason;
     });
 
     if (matchedItems.length === 0) return [];
 
+    const detailUrl = `${apiUrl}/api.php/provide/vod`;
+    const response = await Widget.http.get(detailUrl, {
+      params: { 
+        ac: "detail", 
+        ids: `all:${baseName.trim()}` 
+      },
+      timeout: 30000
+    });
+
+    const list = response?.data?.list;
+    if (!Array.isArray(list) || list.length === 0) return [];
+
+    const detailItem = list[0];
+    const playUrl = detailItem.vod_play_url || '';
+    
+    if (!playUrl) return [];
+
+    const episodes = playUrl.split('#').filter(Boolean);
     const allResources = [];
-
-    for (const item of matchedItems) {
-      const detailUrl = `${apiUrl}/api.php/provide/vod`;
-      const detailResponse = await Widget.http.get(detailUrl, {
-        params: { 
-          ac: "detail", 
-          ids: item.vod_id 
-        },
-        timeout: 30000
-      });
-
-      const detailList = detailResponse?.data?.list;
-      if (!Array.isArray(detailList) || detailList.length === 0) continue;
-
-      const detailItem = detailList[0];
-      const playUrl = detailItem.vod_play_url || '';
-      
-      if (!playUrl) continue;
-
-      const episodes = playUrl.split('#').filter(Boolean);
-      
-      if (type === 'tv' && targetEpisode !== null) {
-        episodes.forEach(ep => {
-          const [epName, url] = ep.split('$');
-          if (url) {
-            const epMatch = epName.match(/第(\d+)集/);
-            const epNum = epMatch ? parseInt(epMatch[1]) : null;
-            
-            if (epNum === targetEpisode || epName.includes(`第${targetEpisode}集`)) {
-              allResources.push({
-                name: '夸克网盘',
-                description: `${item.vod_name} - ${epName}`,
-                url: url.trim()
-              });
-            }
-          }
-        });
-      } else if (type === 'movie') {
-        const firstEp = episodes[0];
-        if (firstEp) {
-          const [epName, url] = firstEp.split('$');
-          if (url) {
+    
+    if (type === 'tv' && targetEpisode !== null) {
+      episodes.forEach(ep => {
+        const [epName, url] = ep.split('$');
+        if (url) {
+          const epMatch = epName.match(/第(\d+)集/);
+          const epNum = epMatch ? parseInt(epMatch[1]) : null;
+          
+          if (epNum === targetEpisode || epName.includes(`第${targetEpisode}集`)) {
             allResources.push({
               name: '夸克网盘',
-              description: `${item.vod_name} - ${epName}`,
-              url: url.trim()
+              description: `${baseName} - ${epName}`,
+              url: url.trim(),
+              _ep: epNum
             });
           }
         }
-      }
+      });
+    } else if (type === 'movie') {
+      episodes.forEach(ep => {
+        const [epName, url] = ep.split('$');
+        if (url) {
+          allResources.push({
+            name: '夸克网盘',
+            description: `${baseName} - ${epName}`,
+            url: url.trim()
+          });
+        }
+      });
+    } else {
+      episodes.forEach(ep => {
+        const [epName, url] = ep.split('$');
+        if (url) {
+          const epMatch = epName.match(/第(\d+)集/);
+          const epNum = epMatch ? parseInt(epMatch[1]) : null;
+          allResources.push({
+            name: '夸克网盘',
+            description: `${baseName} - ${epName}`,
+            url: url.trim(),
+            _ep: epNum
+          });
+        }
+      });
     }
 
     return allResources;
