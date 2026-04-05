@@ -1,0 +1,2 @@
+# panapi
+一个基于盘搜搭配omni获取网盘直链的docker服务，服务于Forward插件
