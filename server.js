@@ -134,8 +134,6 @@ function extractEpisodeNumberDetail(filename) {
     /^\[.*?\]\s*(\d+)[\s\-_]/,
     /^(\d+)[\s\-_]/,
     /^(\d+)\./,
-    /(\d+)\s+(4k|1080p|2160p|720p)/i,
-    /(\d+)(?![^.]*([24]k|720p|1080p|2160p))\.(mp4|mkv|avi|wmv|flv|mov|m4v)$/i,
     /ep(\d+)/i
   ];
   
